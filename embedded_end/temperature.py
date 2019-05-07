@@ -13,5 +13,5 @@ class Temperature:
 
     def pub_temperature(self):
         self.get_temperature()
-        json_str = '{"topic":"%s","time":%f, "temperature":%s}' % (self.__topic__, time.time(), self.__temperature__)
+        json_str = '{"topic":"%s","time":%f, "data":%s}' % (self.__topic__, time.time(), self.__temperature__)
         mqtt_pub.pub_info(self.__topic__, json_str)
