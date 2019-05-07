@@ -1,16 +1,64 @@
 <!DOCTYPE html>
 <head>
     <title>{{title}}</title>
+    <link rel="stylesheet" href="/static/css/bootstrap.min.css" />
+    <script src="/static/js/jquery-3.3.1.min.js"></script>
     <script src="/static/js/echarts.min.js"></script>
+    <script src="/static/js/bootstrap.min.js"></script>
+    <script src="/static/js/popper.min.js"></script>
 </head>
 <body>
-    <div id="main" style="width:600px;height:400px">
+    <div class="page-header">
+        <h1>大棚管理系统</h1>
     </div>
-    <div id='real-time-temp' style="width:400px;height:400px">
+    <div>
+        <ul class="nav nav-tabs" role="tablist" id="myTabs">
+            <li role="presentation" class="active" onclick="foo(this)" >
+                <a href="#temperature" aria-controls="temperature" role="tab" data-toggle="tab">温度管理</a>
+            </li>
+            <li role="presentation" onclick="foo(this)" >
+                <a href="#light" aria-controls="light" role="tab" data-toggle="tab">光照管理</a>
+            </li>
+        </ul>
+        <div class="tab-content">
+            <div role="tabpanel" class="tab-pane fade in active" id="temperature">
+                <div class="row">
+                    <div id="main" style="height:400px;width:1200px"  class="col-lg-7" >
+                    </div>
+                    <div id='real-time-temp'  style="height:400px;width:600px"  class="col-lg-4" >
+                    </div>
+                </div>
+            </div>
+            <div role="tabpanel" class="tab-pane " id="light">
+                <div class="row">
+                    <div id="full-light" style="height:400px;width:1200px"  class="col-lg-7" >
+                    </div>
+                    <div id='real-time-light'  style="height:400px;width:600px"  class="col-lg-4" >
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     <script>
+        var tabList = $("#myTabs");
+
+        $('#myTabs a').click(function (e) {
+            e.preventDefault();
+            $(this).tab('show')
+        });
+
+        function foo(e) {
+            var liList = tabList.find("li");
+            for (var i = 0; i < liList.length; i++) {
+                liList[i].removeAttribute('class');
+            }
+            e.className = "active";
+        }
+
         var real_time_temperature_charts = echarts.init(document.getElementById('real-time-temp'))
         var get_full_temperature_charts = echarts.init(document.getElementById('main'));
+        var real_time_light = echarts.init(document.getElementById('real-time-light'))
+        var full_light_charts = echarts.init(document.getElementById('full-light'))
 
         var xhr = function(url, callback, method){
             var xhr = new XMLHttpRequest();
@@ -40,6 +88,8 @@
                 },
                 series: [
                     {
+                        min:-20,
+                        max:50,
                         name: '温度',
                         type: 'gauge',
                         detail: {formatter:'{value}℃'},
@@ -50,10 +100,6 @@
             real_time_temperature_option.series[0].data[0].value = data['data']
             real_time_temperature_charts.setOption(real_time_temperature_option, true)
         }
-
-        setInterval(function () {
-            get_real_time_temperature()
-        },2000);
         
         // 处理温度曲线显示
         var get_full_temperature = function(){
@@ -63,7 +109,7 @@
             full_temp_date = []
             full_temp_data = []
             for (var i = 1; i < post_data.length; i++){
-                var time = Date(post_data[i].time)
+                var time = new Date(post_data[i].time * 1000)
                 full_temp_date.push(time);
                 full_temp_data.push(post_data[i].data);
             }
@@ -98,7 +144,7 @@
                 },
                 dataZoom: [{
                     type: 'inside',
-                    start: 0,
+                    start: 70,
                     end: 100
                 }, {
                     start: 0,
@@ -138,10 +184,135 @@
             };
             get_full_temperature_charts.setOption(option, true);
         }  
-        setInterval(function () {
-            get_full_temperature()
-        },2000);
 
-        
+        // 处理实时光照
+        var get_real_time_light = function(){
+            xhr("/light/realtime", get_real_time_light_callback, "GET");
+        }
+
+        var get_real_time_light_callback = function(data){
+            var option = {
+                tooltip : {
+                    formatter: "{a} <br/>{b} : {c}"
+                },
+                toolbox: {
+                    feature: {
+                        restore: {},
+                        saveAsImage: {}
+                    }
+                },
+                series: [
+                    {
+                        min:0,
+                        max:255,
+                        name: '光照强度',
+                        type: 'gauge',
+                        detail: {formatter:'{value}'},
+                        data: [{value: 50, name: '光照'}]
+                    }
+                ]
+            };
+            option.series[0].data[0].value = data['data']
+            real_time_light.setOption(option, true)
+        }
+
+        // 处理光照曲线
+        var get_full_light = function(){
+            xhr("light", get_full_light_callback, "GET")
+        }
+
+        var get_full_light_callback = function(data){
+            post_data = data
+            full_light_date = []
+            full_light_data = []
+            for (var i = 1; i < post_data.length; i++){
+                var time = new Date(post_data[i].time * 1000)
+                full_light_date.push(time);
+                full_light_data.push(post_data[i].data);
+            }
+            var option = {
+                tooltip: {
+                    trigger: 'axis',
+                    position: function (pt) {
+                        return [pt[0], '100%'];
+                    }
+                },
+                title: {
+                    left: 'center',
+                    text: '光照曲线',
+                },
+                toolbox: {
+                    feature: {
+                        dataZoom: {
+                            yAxisIndex: 'none'
+                        },
+                        restore: {},
+                        saveAsImage: {}
+                    }
+                },
+                xAxis: {
+                    type: 'category',
+                    boundaryGap: false,
+                    data: full_light_date
+                },
+                yAxis: {
+                    type: 'value',
+                    boundaryGap: [0, '100%']
+                },
+                dataZoom: [{
+                    type: 'inside',
+                    start: 70,
+                    end: 100
+                }, {
+                    start: 0,
+                    end: 10,
+                    handleIcon: 'M10.7,11.9v-1.3H9.3v1.3c-4.9,0.3-8.8,4.4-8.8,9.4c0,5,3.9,9.1,8.8,9.4v1.3h1.3v-1.3c4.9-0.3,8.8-4.4,8.8-9.4C19.5,16.3,15.6,12.2,10.7,11.9z M13.3,24.4H6.7V23h6.6V24.4z M13.3,19.6H6.7v-1.4h6.6V19.6z',
+                    handleSize: '80%',
+                    handleStyle: {
+                        color: '#fff',
+                        shadowBlur: 3,
+                        shadowColor: 'rgba(0, 0, 0, 0.6)',
+                        shadowOffsetX: 2,
+                        shadowOffsetY: 2
+                    }
+                }],
+                series: [
+                    {
+                        name:'温度',
+                        type:'line',
+                        smooth:true,
+                        symbol: 'none',
+                        sampling: 'average',
+                        itemStyle: {
+                            color: 'rgb(255, 70, 131)'
+                        },
+                        areaStyle: {
+                            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{
+                                offset: 0,
+                                color: 'rgb(255, 158, 68)'
+                            }, {
+                                offset: 1,
+                                color: 'rgb(255, 70, 131)'
+                            }])
+                        },
+                        data: full_light_data
+                    }
+                ]
+            };
+            full_light_charts.setOption(option, true);
+        }
+
+        get_full_light()
+        get_full_temperature()
+
+        setInterval(function(){
+            get_real_time_light();
+            get_real_time_temperature();
+        },1000)
+
+        setInterval(function(){
+            get_full_temperature()
+            get_full_light()
+        },10000)
     </script>
 </body>
